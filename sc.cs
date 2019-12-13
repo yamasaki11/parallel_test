@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using Unity.Jobs;
 using Unity.Collections;
+using Unity.Burst;
 //using ​Mathematics;
 
 //#define TEST
@@ -84,9 +85,10 @@ public class sc : MonoBehaviour
  #else
 
         //Parallel.For(0, loopnum,  i=> {Calc(i) ;} );
-
+        //job.init();
         JobHandle h= job.Schedule(loopnum, 32); 
-        h.Complete();   
+        h.Complete();
+        //job.Dispose();   
  #endif
     }
     static Task MakeTask(int i)
@@ -158,6 +160,7 @@ public class sc : MonoBehaviour
 }
 
 
+    [BurstCompile] 
     struct JobTest : IJobParallelFor
     {
         NativeArray<Matrix4x4> m;
