@@ -4,7 +4,7 @@
 
 //#define NORMAL
 //#define NORMAL_TASK
-#define SYNCOBJ_TASK
+//#define SYNCOBJ_TASK
 
 using System.Collections;
 using System.Collections.Generic;
@@ -12,15 +12,20 @@ using UnityEngine;
 using Unity.Mathematics;
 using System.Threading.Tasks;
 using System.Threading;
-
+using Unity.Jobs;
+using Unity.Collections;
 //using ​Mathematics;
 
 //#define TEST
 
 public class sc : MonoBehaviour
 {
-    static int loopnum = 5000;
-    static int parallels = 4;
+    ~ sc()
+    {
+        job.Dispose();
+    }
+    public static int loopnum = 5000;
+    public static int parallels = 4;
     static Task[] tasks;
     static Matrix4x4[] m = new Matrix4x4 [loopnum];
     static Matrix4x4[] t = new Matrix4x4 [loopnum];
@@ -29,10 +34,16 @@ public class sc : MonoBehaviour
     static AutoResetEvent[] start = new AutoResetEvent[parallels];
     static AutoResetEvent[] end = new AutoResetEvent[parallels];
 
+    JobTest job;
+
     // Start is called before the first frame update
     void Start()
     {    
         tasks = new Task[parallels];
+
+        job = new JobTest();
+        job.init();
+
 #if SYNCOBJ_TASK
         for(int i=0; i<parallels; i++)
         {
@@ -72,7 +83,10 @@ public class sc : MonoBehaviour
         //Debug.Log("task end" );
  #else
 
-        Parallel.For(0, loopnum,  i=> {Calc(i) ;} );
+        //Parallel.For(0, loopnum,  i=> {Calc(i) ;} );
+
+        JobHandle h= job.Schedule(loopnum, 32); 
+        h.Complete();   
  #endif
     }
     static Task MakeTask(int i)
@@ -140,7 +154,37 @@ public class sc : MonoBehaviour
         t[i] = Matrix4x4.identity;
         s[i] = Matrix4x4.identity;
         m[i] = t[i]*s[i];              
-    }
-
-    
+    }    
 }
+
+
+    struct JobTest : IJobParallelFor
+    {
+        NativeArray<Matrix4x4> m;
+
+        NativeArray<Matrix4x4> t;
+        NativeArray<Matrix4x4> s;
+
+        
+        public void init()
+        {
+            m = new NativeArray<Matrix4x4>(sc.loopnum, Allocator.Persistent);
+            t = new NativeArray<Matrix4x4>(sc.loopnum, Allocator.Persistent);
+            s = new NativeArray<Matrix4x4>(sc.loopnum, Allocator.Persistent);
+        }
+        public void Execute(int i)
+        {
+            m[i] = Matrix4x4.identity;
+            t[i] = Matrix4x4.identity;
+            s[i] = m[i]*t[i];
+
+            //Debug.Log("index" + i);
+        }
+
+        public void Dispose()
+        {
+            m.Dispose();
+            t.Dispose();
+            s.Dispose();
+        }
+    }
